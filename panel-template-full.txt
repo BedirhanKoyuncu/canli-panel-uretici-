@@ -1,0 +1,137 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Canlı Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; color: #000; transition: background 0.3s, color 0.3s; }
+    body.dark-mode { background: #1c1c1c; color: #f0f0f0; }
+    .switch, .controls { margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+    input#searchBox, select#columnFilter { padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc; flex-grow: 1; }
+    button { padding: 10px 15px; border: none; border-radius: 6px; background: green; color: white; cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; background: white; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; cursor: default; }
+    th.sortable:hover { background: #0056b3; cursor: pointer; }
+    th { background: #007bff; color: white; }
+    body.dark-mode table { background: #333; color: #f0f0f0; }
+    body.dark-mode th { background: #0056b3; }
+    tfoot td { font-weight: bold; background: #e0f7fa; }
+    body.dark-mode tfoot td { background: #2c2c2c; }
+    .chart-box { width: 100%; max-width: 500px; margin: 20px auto; }
+    .info { margin-top: 20px; font-size: 14px; color: gray; }
+    .iframe-output { background: #eee; padding: 10px; font-size: 13px; word-break: break-word; border-radius: 5px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h2>📊 Canlı Panel - {{SHEET_NAME}}</h2>
+  <div class="switch">
+    <label><input type="checkbox" onchange="toggleTheme()"> 🌙 Gece Modu</label>
+    <button onclick="exportToExcel()">📥 Excel'e Aktar</button>
+    <button onclick="copyIframe()">🌐 iFrame Kodu</button>
+  </div>
+  <div class="controls">
+    <input type="text" id="searchBox" placeholder="Ara..." onkeyup="filterTable()" />
+    <select id="columnFilter" onchange="filterTable()">
+      <option value="">Tüm Sütunlarda Ara</option>
+    </select>
+  </div>
+  <div id="table-container">Veriler yükleniyor...</div>
+  <canvas id="chart" class="chart-box"></canvas>
+  <div class="info" id="lastUpdated"></div>
+  <div class="iframe-output" id="iframeCode" style="display:none;"></div>
+
+  <script>
+    const url = "https://script.google.com/macros/s/{{WEBAPP_ID}}/exec";
+    let currentData = [];
+
+    function fetchData() {
+      fetch(url).then(r => r.json()).then(d => {
+        currentData = d;
+        renderTable(d);
+        document.getElementById("lastUpdated").innerText = "🔄 Son güncelleme: " + new Date().toLocaleTimeString();
+      });
+    }
+
+    fetchData(); setInterval(fetchData, 30000);
+
+    function renderTable(data) {
+      const h = data[0], r = data.slice(1);
+      const columnOptions = h.map((name, i) => `<option value="${i}">${name}</option>`).join("");
+      document.getElementById("columnFilter").innerHTML = `<option value="">Tüm Sütunlarda Ara</option>` + columnOptions;
+
+      let html = "<table id='dataTable'><thead><tr>" + h.map(c => `<th class='sortable' onclick="sortTable(${h.indexOf(c)})">${c}</th>`).join("") + "</tr></thead><tbody>";
+      r.forEach(row => html += "<tr>" + row.map(c => `<td>${c}</td>`).join("") + "</tr>");
+      html += "</tbody><tfoot><tr>" + h.map((c, i) => i === 0 ? "<td>Toplam</td>" : `<td>${r.reduce((s, v) => s + (+v[i] || 0), 0).toFixed(2)}</td>`).join("") + "</tr>";
+      html += "<tr>" + h.map((c, i) => {
+        if (i === 0) return "<td>Oran</td>";
+        const base = r.reduce((s, v) => s + (+v[1] || 0), 0);
+        const total = r.reduce((s, v) => s + (+v[i] || 0), 0);
+        return "<td>" + (base ? (total / base * 100).toFixed(2) + "%" : "-") + "</td>";
+      }).join("") + "</tr></tfoot></table>";
+      document.getElementById("table-container").innerHTML = html;
+
+      const labels = r.map(x => x[0]);
+      const values = r.map(x => parseFloat(x[1]) || 0);
+      new Chart(document.getElementById("chart"), {
+        type: "pie",
+        data: { labels, datasets: [{ label: h[1], data: values }] },
+        options: { plugins: { title: { display: true, text: h[1] } } }
+      });
+    }
+
+    function filterTable() {
+      const input = document.getElementById("searchBox").value.toLowerCase();
+      const col = document.getElementById("columnFilter").value;
+      const rows = document.querySelectorAll("#dataTable tbody tr");
+      rows.forEach(row => {
+        const cells = row.getElementsByTagName("td");
+        let show = false;
+        if (col === "") {
+          for (let cell of cells) if (cell.innerText.toLowerCase().includes(input)) show = true;
+        } else {
+          const i = parseInt(col);
+          if (cells[i] && cells[i].innerText.toLowerCase().includes(input)) show = true;
+        }
+        row.style.display = show ? "" : "none";
+      });
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark-mode");
+    }
+
+    function exportToExcel() {
+      const csv = [...document.querySelectorAll("table tr")].map(row =>
+        [...row.cells].map(c => c.innerText).join(";")
+      ).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "panel.csv";
+      a.click();
+    }
+
+    function sortTable(col) {
+      const rows = Array.from(document.querySelectorAll("#dataTable tbody tr"));
+      const asc = document.querySelector("th.sortable:nth-child(" + (col + 1) + ")").classList.toggle("asc");
+      rows.sort((a, b) => {
+        const A = a.cells[col].innerText.toLowerCase();
+        const B = b.cells[col].innerText.toLowerCase();
+        return asc ? A.localeCompare(B, "tr") : B.localeCompare(A, "tr");
+      });
+      const tbody = document.querySelector("#dataTable tbody");
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
+    function copyIframe() {
+      const iframeCode = '<iframe src="' + window.location.href + '" width="100%" height="600"></iframe>';
+      navigator.clipboard.writeText(iframeCode).then(() => {
+        document.getElementById("iframeCode").style.display = "block";
+        document.getElementById("iframeCode").innerText = iframeCode;
+      });
+    }
+  </script>
+</body>
+</html>
