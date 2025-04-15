@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Canlı Panel Üretici - Dış Şablonlu</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f3f5f8; margin: 0; padding: 0; }
+    .container {
+      max-width: 600px; margin: 50px auto; background: #fff;
+      padding: 30px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    h1 { text-align: center; color: #007bff; margin-bottom: 25px; }
+    label { display: block; margin-top: 15px; font-weight: bold; }
+    input[type="text"], input[type="file"] {
+      width: 100%; padding: 10px; margin-top: 5px;
+      border: 1px solid #ccc; border-radius: 5px;
+    }
+    button {
+      width: 100%; margin-top: 30px; padding: 14px;
+      background-color: #28a745; color: white;
+      font-size: 16px; border: none; border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #218838; }
+    .message {
+      margin-top: 20px; text-align: center;
+      font-weight: bold; color: green;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📄 Canlı Panel Üretici</h1>
+
+    <label for="webAppId">Web App ID</label>
+    <input type="text" id="webAppId" placeholder="AKfycb...">
+
+    <label for="sheetName">Sayfa Adı</label>
+    <input type="text" id="sheetName" placeholder="Sheet1">
+
+    <label for="template">Şablon Dosyası (.txt)</label>
+    <input type="file" id="template" accept=".txt">
+
+    <button onclick="generatePanel()">Paneli Oluştur ve İndir</button>
+    <div class="message" id="msg"></div>
+  </div>
+
+  <script>
+    function generatePanel() {
+      const webAppId = document.getElementById("webAppId").value.trim();
+      const sheetName = document.getElementById("sheetName").value.trim();
+      const templateFile = document.getElementById("template").files[0];
+
+      if (!webAppId || !sheetName || !templateFile) {
+        alert("Lütfen tüm alanları ve şablon dosyasını doldurun.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        let content = e.target.result;
+        content = content.replace(/{{WEBAPP_ID}}/g, webAppId);
+        content = content.replace(/{{SHEET_NAME}}/g, sheetName);
+
+        const blob = new Blob([content], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "canli-panel.html";
+        a.click();
+
+        document.getElementById("msg").innerText = "✅ Panel başarıyla oluşturuldu ve indirildi!";
+      };
+      reader.readAsText(templateFile);
+    }
+  </script>
+</body>
+</html>
