@@ -1,0 +1,329 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Araç Muayene Paneli - Gelişmiş</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+<script>
+    function exportExcel() {
+      const table = document.querySelector("table");
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.table_to_sheet(table);
+      XLSX.utils.book_append_sheet(wb, ws, "Veriler");
+      XLSX.writeFile(wb, "panel-veri.xlsx");
+    }
+
+    function filterTable() {
+      const input = document.getElementById("search").value.toLowerCase();
+      const rows = document.querySelectorAll("tbody tr");
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(input) ? "" : "none";
+      });
+    }
+    
+</script>
+  <style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f1f3f6;
+    margin: 0;
+    padding: 20px;
+    transition: background 0.3s, color 0.3s;
+  }
+  body.dark-theme {
+    background: #1e1e2f;
+    color: #ddd;
+  }
+  h2 {
+    text-align: center;
+    color: #333;
+  }
+  body.dark-theme h2 {
+    color: #eee;
+  }
+  .btn {
+    padding: 10px 16px;
+    margin: 4px;
+    background-color: #007bff;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background-color: #0056b3;
+  }
+  .dark-theme .btn {
+    background-color: #444;
+    color: white;
+  }
+  #table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    background: white;
+    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+  }
+  .dark-theme table {
+    background: #2a2a3d;
+    color: #ddd;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+  }
+  th {
+    background-color: #4a90e2;
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .dark-theme th {
+    background-color: #444;
+  }
+  tfoot td {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    color: #333;
+  }
+  .dark-theme tfoot td {
+    background-color: #333;
+    color: #eee;
+  }
+  tr:nth-child(even) {
+    background-color: #f2f2f2;
+  }
+  .dark-theme tr:nth-child(even) {
+    background-color: #2e2e40;
+  }
+  tr:hover td {
+    background-color: #e0f0ff;
+  }
+  .dark-theme tr:hover td {
+    background-color: #3c3c5c;
+  }
+  @media (max-width: 768px) {
+    h2 {
+      font-size: 20px;
+    }
+    .btn {
+      font-size: 12px;
+      padding: 8px;
+    }
+    table, th, td {
+      font-size: 12px;
+    }
+  }
+</style>
+</head>
+<body>
+  <h2 style="font-size: 26px;">EXCEL CANLI VERİ</h2>
+<button class="btn" onclick="toggleTheme()">🌓 Tema Değiştir</button>
+<script>
+function toggleTheme() {
+  document.body.classList.toggle("dark-theme");
+}
+</script>
+
+
+  <div id="controls">
+
+    <input type="text" id="search" placeholder="🔍 Ara..." onkeyup="filterTable()" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+    <button class="btn" onclick="exportExcel()">📥 Excel</button>
+
+    <button class="btn" onclick="fetchData()">🔄 Yenile</button>
+    <button class="btn" onclick="renderChart('bar')">📊 Sütun</button>
+    <button class="btn" onclick="renderChart('line')">📈 Çizgi</button>
+    <button class="btn" onclick="renderChart('pie')">🥧 Pasta</button>
+    <button class="btn" onclick="renderChart('doughnut')">🍩 Donut</button>
+    <button class="btn" onclick="renderChart('radar')">🎯 Radar</button>
+    <button class="btn" onclick="renderChart('polarArea')">🧭 Polar</button>
+<button class="btn" onclick="exportCSV()">📄 CSV</button>
+<button class="btn" onclick="exportPDF()">🖨️ PDF</button>
+  </div>
+
+  
+  <div id="table-container">Veriler yükleniyor...</div>
+
+  <script>
+    const sheetName = "Sheet1";
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbwmImZN_bXWMKMg0utg0gnv-FsV9KrNbhIrP8QrYL7gQEtS34FG1uz8_rTZb3RkgKNB6Q/exec";
+    let currentData = [];
+    let chart;
+
+    function fetchData() {
+      fetch(`${webAppUrl}?sheet=${sheetName}`)
+        .then(response => response.json())
+        .then(data => {
+          currentData = data;
+          renderTable(data);
+          renderChart("bar");
+        })
+        .catch(err => {
+          document.getElementById("table-container").innerText = "Veri alınamadı: " + err.message;
+        });
+    }
+
+    function renderTable(data) {
+  let html = "<table><thead><tr>";
+  data[0].forEach(col => html += `<th>${col}</th>`);
+  html += "<th>Hedef Toplamı</th><th>Gerçek Toplamı</th><th>Oran</th></tr></thead><tbody>";
+
+  const labelRow = data[1];  // 2. satırda hedef/gerçek ayrımı var
+  const hedefIndices = [], gercekIndices = [];
+
+  labelRow.forEach((val, i) => {
+    const lower = val.toLowerCase();
+    if (lower.includes("hedef")) hedefIndices.push(i);
+    if (lower.includes("gerçek")) gercekIndices.push(i);
+  });
+
+  let totalHedef = 0, totalGercek = 0;
+
+  for (let i = 2; i < data.length; i++) {
+    let rowHedef = 0, rowGercek = 0;
+    html += "<tr>";
+    data[i].forEach((cell, j) => {
+      html += `<td>${cell}</td>`;
+      const val = parseFloat(cell.toString().replace(",", "."));
+      if (!isNaN(val)) {
+        if (hedefIndices.includes(j)) rowHedef += val;
+        if (gercekIndices.includes(j)) rowGercek += val;
+      }
+    });
+    totalHedef += rowHedef;
+    totalGercek += rowGercek;
+
+    html += `<td>${rowHedef.toFixed(2)}</td>`;
+    html += `<td>${rowGercek.toFixed(2)}</td>`;
+    const oran = rowHedef > 0 ? (rowGercek / rowHedef) * 100 : 0;
+    html += `<td>${oran.toFixed(1)}%</td></tr>`;
+  }
+
+  html += "</tbody><tfoot><tr>";
+  for (let j = 0; j < data[0].length; j++) {
+    html += j === 0 ? "<td><b>Genel Toplam</b></td>" : "<td></td>";
+  }
+  html += `<td><b>${totalHedef.toFixed(2)}</b></td>`;
+  html += `<td><b>${totalGercek.toFixed(2)}</b></td>`;
+  const genelOran = totalHedef > 0 ? (totalGercek / totalHedef) * 100 : 0;
+  html += `<td><b>${genelOran.toFixed(1)}%</b></td></tr>`;
+
+  // Yeni satır: Sütunların altına toplamları yaz
+  html += "<tr>";
+  const colSums = new Array(data[0].length).fill(0);
+  for (let i = 2; i < data.length; i++) {
+    data[i].forEach((cell, j) => {
+      const val = parseFloat(cell.toString().replace(",", "."));
+      if (!isNaN(val)) colSums[j] += val;
+    });
+  }
+  colSums.forEach((sum, j) => {
+    html += j === 0 ? "<td><b>Sütun Toplamı</b></td>" : `<td><b>${sum.toFixed(2)}</b></td>`;
+  });
+  html += "<td></td><td></td><td></td></tr></tfoot></table>";
+
+  document.getElementById("table-container").innerHTML = html;
+}
+
+    function renderChart(type) {
+      if (!currentData.length) return;
+
+      const labels = currentData.slice(1).map(row => row[0]);
+      const values = currentData.slice(1).map(row => parseFloat(row[1].toString().replace(",", ".")) || 0);
+      const ctx = document.getElementById("myChart").getContext("2d");
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type,
+        data: {
+          labels,
+          datasets: [{
+            label: currentData[0][1],
+            data: values,
+            backgroundColor: ['#007BFF','#28A745','#FFC107','#DC3545','#6610f2','#20c997'],
+            borderColor: '#000',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: type !== 'bar' && type !== 'line' },
+            title: { display: true, text: `Grafik Türü: ${type}` }
+          }
+        }
+      });
+    }
+
+    fetchData();
+function exportCSV() {
+  const table = document.querySelector("table");
+  if (!table) return;
+  let csv = "";
+  table.querySelectorAll("tr").forEach(row => {
+    const rowData = Array.from(row.querySelectorAll("th,td")).map(cell =>
+      `"${cell.textContent.replace(/"/g, '""')}"`
+    ).join(";");
+    csv += rowData + "\n";
+  });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "panel-veri.csv";
+  link.click();
+}
+
+async function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const table = document.querySelector("table");
+  if (!table) return;
+  let y = 10;
+  table.querySelectorAll("tr").forEach(row => {
+    let x = 10;
+    row.querySelectorAll("th,td").forEach(cell => {
+      doc.text(cell.textContent, x, y);
+      x += 40;
+    });
+    y += 10;
+  });
+  doc.save("panel-veri.pdf");
+}
+
+  
+    function exportExcel() {
+      const table = document.querySelector("table");
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.table_to_sheet(table);
+      XLSX.utils.book_append_sheet(wb, ws, "Veriler");
+      XLSX.writeFile(wb, "panel-veri.xlsx");
+    }
+
+    function filterTable() {
+      const input = document.getElementById("search").value.toLowerCase();
+      const rows = document.querySelectorAll("tbody tr");
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(input) ? "" : "none";
+      });
+    }
+    
+</script>
+
+<div style="margin-top: 40px;">
+  <canvas id="myChart" height="400" style="max-width: 100%;"></canvas>
+</div>
+</body>
+</html>
+
