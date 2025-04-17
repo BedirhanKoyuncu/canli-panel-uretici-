@@ -158,7 +158,7 @@ function toggleTheme() {
 
   <script>
     const sheetName = "Sheet1";
-    const webAppUrl = "https://script.google.com/macros/s/AKfycbwmImZN_bXWMKMg0utg0gnv-FsV9KrNbhIrP8QrYL7gQEtS34FG1uz8_rTZb3RkgKNB6Q/exec";
+    const webAppUrl = "<APPS SCRİPTS Web App<";
     let currentData = [];
     let chart;
 
